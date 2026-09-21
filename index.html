@@ -316,8 +316,8 @@
     <p class="eyebrow reveal">Sobre mí</p>
     <div class="about">
       <div class="reveal">
-        <p>Me apasiona coger un problema y no soltarlo hasta que funciona. Lo que mejor me define no es una lista de tecnologías, sino <b>lo que he construido</b>: he diseñado y puesto en producción, yo solo y de principio a fin, un <b>asistente con IA</b>, un proyecto de <b>visión por computador</b>, una <b>app móvil</b> y varias <b>automatizaciones</b>.</p>
-        <p>Vengo del backend, la automatización y la IA, pero sobre todo <b>aprendo rápido</b>: si no sé algo, me meto de lleno hasta dominarlo. Busco mi primer empleo estable como desarrollador (backend / datos / IA) y proyectos freelance.</p>
+        <p>Me apasiona coger un problema y no soltarlo hasta que funciona — y <b>construyo mucho</b>. He diseñado y puesto en producción, de principio a fin, un <b>asistente con IA</b> y un proyecto de <b>visión por computador</b>, pero también <b>varias apps móviles</b>, <b>web scrapers</b> y <b>herramientas de automatización</b>, incluidas <b>aplicaciones internas de creación de contenido</b> para la empresa en la que trabajé.</p>
+        <p>Me muevo con soltura entre <b>backend, móvil, datos e IA</b>, y sobre todo <b>aprendo rápido</b>: si no sé algo, me meto de lleno hasta dominarlo. Busco mi primer empleo estable como desarrollador y proyectos freelance.</p>
       </div>
       <div class="codecard reveal" aria-hidden="true">
         <div class="bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>nestor.js</span></div>
@@ -433,7 +433,7 @@
           <h3>Desarrollador · Departamento de Sistemas — Medicarama</h3>
           <div class="when">Dic 2025 – Jul 2026 · València</div>
           <ul>
-            <li>Desarrollo de <b>software interno a medida</b> y <b>automatizaciones</b>: tratamiento de datos, web scraping y control de flujos.</li>
+            <li>Desarrollo de <b>software interno a medida</b>, <b>automatizaciones</b> (tratamiento de datos, web scraping, control de flujos) y <b>herramientas de creación de contenido</b>.</li>
             <li>Diseñé y desplegué <b>Tutor-unis</b>, un asistente con <b>IA generativa (RAG)</b>.</li>
             <li><b>Resolución de incidencias</b> y trabajo con el resto del área de sistemas.</li>
           </ul>
@@ -632,6 +632,7 @@
     var ctx=canvas.getContext('2d');
     var scoreEl=document.getElementById('score'), bestEl=document.getElementById('best'), resetEl=document.getElementById('reset');
     var W=0,H=0,DPR=1, ball, hoop, aiming=false, aimCur=null, shooting=false, scored=false, score=0, best=0;
+    var POW=0.135, G=0.28, MAXV=14;   // potencia de lanzamiento, gravedad y velocidad máxima
     function css(v,f){ return (getComputedStyle(document.documentElement).getPropertyValue(v)||f).trim(); }
     try{ best=parseInt(localStorage.getItem('bv_best')||'0',10)||0; }catch(e){}
     if(bestEl) bestEl.textContent=best;
@@ -650,13 +651,15 @@
     function move(e){ if(!aiming) return; aimCur=pos(e); if(e.cancelable) e.preventDefault(); }
     function up(e){
       if(!aiming) return; aiming=false;
-      var m=aimCur||pos(e), P=0.22;
-      ball.vx=(ball.x-m.x)*P; ball.vy=(ball.y-m.y)*P;
+      var m=aimCur||pos(e);
+      var vx=(ball.x-m.x)*POW, vy=(ball.y-m.y)*POW;
+      var sp=Math.sqrt(vx*vx+vy*vy); if(sp>MAXV){ vx=vx/sp*MAXV; vy=vy/sp*MAXV; }
+      ball.vx=vx; ball.vy=vy;
       shooting=true; scored=false; if(e.cancelable) e.preventDefault();
     }
     function update(){
       if(shooting){
-        ball.vy+=0.5; ball.x+=ball.vx; ball.y+=ball.vy;
+        ball.vy+=G; ball.x+=ball.vx; ball.y+=ball.vy;
         if(ball.x<ball.r){ ball.x=ball.r; ball.vx*=-0.6; }
         if(ball.x>W-ball.r){ ball.x=W-ball.r; ball.vx*=-0.6; }
         var rimL=hoop.x-hoop.w/2, rimR=hoop.x+hoop.w/2;
@@ -688,9 +691,11 @@
       ctx.strokeStyle=acc; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(rimL,hoop.y); ctx.lineTo(rimR,hoop.y); ctx.stroke();
       // aim prediction
       if(aiming && aimCur){
-        var vx=(ball.x-aimCur.x)*0.22, vy=(ball.y-aimCur.y)*0.22, px=ball.x, py=ball.y;
+        var vx=(ball.x-aimCur.x)*POW, vy=(ball.y-aimCur.y)*POW;
+        var sp=Math.sqrt(vx*vx+vy*vy); if(sp>MAXV){ vx=vx/sp*MAXV; vy=vy/sp*MAXV; }
+        var px=ball.x, py=ball.y;
         ctx.fillStyle=acc; ctx.globalAlpha=.5;
-        for(var t=0;t<20;t++){ px+=vx; py+=vy; vy+=0.5; if(t%2===0){ ctx.beginPath(); ctx.arc(px,py,2,0,6.2832); ctx.fill(); } }
+        for(var t=0;t<26;t++){ px+=vx; py+=vy; vy+=G; if(t%2===0){ ctx.beginPath(); ctx.arc(px,py,2,0,6.2832); ctx.fill(); } }
         ctx.globalAlpha=1;
       }
       // ball
