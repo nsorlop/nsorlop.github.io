@@ -236,6 +236,22 @@
   footer{border-top:1px solid var(--line);padding:2rem 0 3rem;color:var(--muted);font-family:var(--mono);font-size:.76rem}
   footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.6rem}
 
+  /* ---------- Particles ---------- */
+  .pfield{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+
+  /* ---------- Arcade / minigame ---------- */
+  #arcade .game-intro{color:var(--muted);max-width:62ch;margin:0 0 1.3rem;font-size:1rem}
+  #arcade .game-intro b{color:var(--ink)}
+  .game-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem;overflow:hidden}
+  #hoop{display:block;width:100%;height:360px;border-radius:10px;cursor:crosshair;touch-action:none;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 7%,var(--ground)),var(--ground))}
+  .game-hud{display:flex;align-items:center;gap:1.3rem;margin-top:.9rem;font-family:var(--mono);font-size:.82rem;color:var(--muted)}
+  .game-hud b{color:var(--ink);font-size:1.05rem;margin-left:.35rem;font-variant-numeric:tabular-nums}
+  .game-hud #reset{margin-left:auto;font-family:var(--mono);font-size:.76rem;padding:.45rem .95rem;
+    border:1px solid var(--line-strong);background:var(--ground);color:var(--ink);border-radius:999px;cursor:pointer;transition:border-color .15s,transform .15s}
+  .game-hud #reset:hover{border-color:var(--accent);transform:translateY(-1px)}
+  @media(max-width:640px){#hoop{height:300px}}
+
   /* ---------- Reveal ---------- */
   .has-js .reveal:not(.in){opacity:0;transform:translateY(16px)}
   .reveal{transition:opacity .6s ease,transform .6s ease}
@@ -244,6 +260,7 @@
 </head>
 <body>
 <div class="aura" aria-hidden="true"></div>
+<canvas id="pfield" class="pfield" aria-hidden="true"></canvas>
 
 <nav class="top">
   <div class="wrap">
@@ -264,7 +281,7 @@
     <span class="badge reveal"><span class="dot"></span>Disponible para oportunidades</span>
     <h1 class="reveal">Néstor <span class="sur">Soriano López</span></h1>
     <p class="thesis reveal">Construyo <span class="hl">backends</span>, automatizaciones y sistemas de <span class="hl">IA</span> que llegan a producción.</p>
-    <p class="sub reveal">Ingeniero informático recién graduado por la Universitat Politècnica de València (mención en Computación). Especializado en backend, automatización e IA. Abierto a un primer empleo como desarrollador y a proyectos freelance.</p>
+    <p class="sub reveal">Recién graduado en la UPV (mención en Computación). Convierto ideas en backends, automatizaciones y sistemas de IA que llegan a producción — y busco mi primer equipo.</p>
 
     <div class="links reveal">
       <a class="primary" href="#proyectos"><span class="ic"></span>Ver proyectos</a>
@@ -287,8 +304,8 @@
         <div class="l">proyectos<br>destacados</div>
       </div>
       <div class="cell">
-        <div class="k">E2E</div>
-        <div class="l">software desplegado<br>de principio a fin</div>
+        <div class="k"><span class="count" data-target="3" data-dec="0">3</span></div>
+        <div class="l">proyectos<br>en producción</div>
       </div>
     </div>
   </div>
@@ -445,13 +462,29 @@
   </div>
 </section>
 
+<section id="arcade">
+  <div class="wrap">
+    <p class="eyebrow reveal">Un descanso</p>
+    <h2 class="sec-h reveal">¿Echamos un tiro?</h2>
+    <p class="game-intro reveal">Hago visión por computador de baloncesto — ahí arriba tienes BasketVision. Esta es la versión sin cámaras: arrastra <b>hacia atrás</b> desde el balón para apuntar y suelta para lanzar. 🏀</p>
+    <div class="game-wrap reveal">
+      <canvas id="hoop" aria-label="Minijuego de baloncesto: arrastra para lanzar"></canvas>
+      <div class="game-hud">
+        <span>Encestes <b id="score">0</b></span>
+        <span>Récord <b id="best">0</b></span>
+        <button id="reset" type="button">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="contact" id="contacto">
   <div class="wrap">
     <p class="eyebrow reveal">Contacto</p>
     <div class="contactgrid">
       <div class="reveal">
         <h2>¿Hablamos?</h2>
-        <p>Disponible para un primer empleo como desarrollador (backend / datos / IA) en Valencia y para proyectos freelance de automatización.</p>
+        <p>Disponible para un primer empleo como desarrollador (backend / datos / IA) en Valencia y para proyectos freelance de automatización. Respondo rápido y con ganas.</p>
         <div class="links" style="margin-top:1.4rem">
           <a class="primary" href="mailto:nestorlafont@gmail.com"><span class="ic"></span>nestorlafont@gmail.com</a>
         </div>
@@ -551,6 +584,130 @@
     }, {threshold:.6});
     counts.forEach(function(el){ io2.observe(el); });
   }
+
+  /* ---------- Particles (lateral bias) ---------- */
+  (function(){
+    var c=document.getElementById('pfield'); if(!c) return;
+    var ctx=c.getContext('2d'), dots=[], W=0, H=0, DPR=1, raf=0;
+    function accent(){ return (getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#F1A93F').trim(); }
+    var col=accent();
+    function build(){
+      col=accent();
+      var n=Math.round(Math.min(90, Math.max(26, W/16))), edge=0.2;
+      dots=[];
+      for(var i=0;i<n;i++){
+        var x, side=Math.random();
+        if(side<0.72){ x = Math.random()<0.5 ? Math.random()*W*edge : W*(1-edge)+Math.random()*W*edge; }
+        else { x=Math.random()*W; }
+        dots.push({x:x,y:Math.random()*H,r:Math.random()*1.8+0.6,
+          vx:(Math.random()-0.5)*0.14, vy:-(Math.random()*0.22+0.05), a:Math.random()*0.4+0.14});
+      }
+    }
+    function resize(){
+      DPR=Math.min(window.devicePixelRatio||1,2);
+      W=c.clientWidth; H=c.clientHeight;
+      c.width=W*DPR; c.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+      build();
+    }
+    function paint(){
+      ctx.clearRect(0,0,W,H); ctx.fillStyle=col;
+      for(var i=0;i<dots.length;i++){ var d=dots[i]; ctx.globalAlpha=d.a;
+        ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,6.2832); ctx.fill(); }
+      ctx.globalAlpha=1;
+    }
+    function step(){
+      for(var i=0;i<dots.length;i++){ var d=dots[i]; d.x+=d.vx; d.y+=d.vy;
+        if(d.y<-6){ d.y=H+6; d.x=Math.random()*W; }
+        if(d.x<-6) d.x=W+6; else if(d.x>W+6) d.x=-6; }
+      paint(); raf=requestAnimationFrame(step);
+    }
+    resize();
+    if(reduce){ paint(); } else { step(); }
+    var rt; window.addEventListener('resize', function(){ clearTimeout(rt); rt=setTimeout(function(){ resize(); if(reduce) paint(); },150); });
+  })();
+
+  /* ---------- Basketball minigame ---------- */
+  (function(){
+    var canvas=document.getElementById('hoop'); if(!canvas) return;
+    var ctx=canvas.getContext('2d');
+    var scoreEl=document.getElementById('score'), bestEl=document.getElementById('best'), resetEl=document.getElementById('reset');
+    var W=0,H=0,DPR=1, ball, hoop, aiming=false, aimCur=null, shooting=false, scored=false, score=0, best=0;
+    function css(v,f){ return (getComputedStyle(document.documentElement).getPropertyValue(v)||f).trim(); }
+    try{ best=parseInt(localStorage.getItem('bv_best')||'0',10)||0; }catch(e){}
+    if(bestEl) bestEl.textContent=best;
+
+    function placeHoop(){ hoop={x:W-64, y:H*0.32, w:46}; }
+    function newHoop(){ hoop.y=H*(0.22+Math.random()*0.30); hoop.x=W-(50+Math.random()*40); }
+    function resetBall(){ ball={x:48,y:H-42,r:14,vx:0,vy:0}; shooting=false; scored=false; }
+    function resize(){
+      DPR=Math.min(window.devicePixelRatio||1,2);
+      W=canvas.clientWidth; H=canvas.clientHeight;
+      canvas.width=W*DPR; canvas.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+      placeHoop(); resetBall();
+    }
+    function pos(e){ var r=canvas.getBoundingClientRect(); var p=e.touches&&e.touches[0]?e.touches[0]:e; return {x:p.clientX-r.left,y:p.clientY-r.top}; }
+    function down(e){ if(shooting) return; aiming=true; aimCur=pos(e); e.preventDefault(); }
+    function move(e){ if(!aiming) return; aimCur=pos(e); if(e.cancelable) e.preventDefault(); }
+    function up(e){
+      if(!aiming) return; aiming=false;
+      var m=aimCur||pos(e), P=0.22;
+      ball.vx=(ball.x-m.x)*P; ball.vy=(ball.y-m.y)*P;
+      shooting=true; scored=false; if(e.cancelable) e.preventDefault();
+    }
+    function update(){
+      if(shooting){
+        ball.vy+=0.5; ball.x+=ball.vx; ball.y+=ball.vy;
+        if(ball.x<ball.r){ ball.x=ball.r; ball.vx*=-0.6; }
+        if(ball.x>W-ball.r){ ball.x=W-ball.r; ball.vx*=-0.6; }
+        var rimL=hoop.x-hoop.w/2, rimR=hoop.x+hoop.w/2;
+        if(!scored && ball.vy>0 && ball.x>rimL && ball.x<rimR && Math.abs(ball.y-hoop.y)<7){
+          scored=true; score++; if(score>best){ best=score; try{localStorage.setItem('bv_best',best);}catch(e){} bestEl.textContent=best; }
+          scoreEl.textContent=score; newHoop(); setTimeout(resetBall,450);
+        }
+        if(ball.y>H-ball.r){
+          ball.y=H-ball.r; ball.vy*=-0.5; ball.vx*=0.7;
+          if(Math.abs(ball.vy)<1.6){ resetBall(); }
+        }
+      }
+    }
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+      var mut=css('--muted','#93a0af'), acc=css('--accent','#F1A93F');
+      // floor
+      ctx.strokeStyle=mut; ctx.globalAlpha=.35; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(0,H-8); ctx.lineTo(W,H-8); ctx.stroke(); ctx.globalAlpha=1;
+      var rimL=hoop.x-hoop.w/2, rimR=hoop.x+hoop.w/2;
+      // backboard
+      ctx.strokeStyle=mut; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(rimR+8,hoop.y-32); ctx.lineTo(rimR+8,hoop.y+16); ctx.stroke();
+      // net
+      ctx.strokeStyle=mut; ctx.globalAlpha=.45; ctx.lineWidth=1;
+      for(var i=0;i<=4;i++){ var x=rimL+(hoop.w/4)*i; ctx.beginPath(); ctx.moveTo(x,hoop.y); ctx.lineTo(hoop.x+((x-hoop.x)*0.35),hoop.y+22); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(rimL+4,hoop.y+11); ctx.lineTo(rimR-4,hoop.y+11); ctx.stroke(); ctx.globalAlpha=1;
+      // rim
+      ctx.strokeStyle=acc; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(rimL,hoop.y); ctx.lineTo(rimR,hoop.y); ctx.stroke();
+      // aim prediction
+      if(aiming && aimCur){
+        var vx=(ball.x-aimCur.x)*0.22, vy=(ball.y-aimCur.y)*0.22, px=ball.x, py=ball.y;
+        ctx.fillStyle=acc; ctx.globalAlpha=.5;
+        for(var t=0;t<20;t++){ px+=vx; py+=vy; vy+=0.5; if(t%2===0){ ctx.beginPath(); ctx.arc(px,py,2,0,6.2832); ctx.fill(); } }
+        ctx.globalAlpha=1;
+      }
+      // ball
+      ctx.fillStyle=acc; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,6.2832); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ball.x-ball.r,ball.y); ctx.lineTo(ball.x+ball.r,ball.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ball.x,ball.y-ball.r); ctx.lineTo(ball.x,ball.y+ball.r); ctx.stroke();
+    }
+    function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+    canvas.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+    canvas.addEventListener('touchstart',down,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+    if(resetEl) resetEl.addEventListener('click', function(){ score=0; scoreEl.textContent=0; resetBall(); });
+    var rt2; window.addEventListener('resize', function(){ clearTimeout(rt2); rt2=setTimeout(resize,150); });
+    resize(); requestAnimationFrame(loop);
+  })();
 </script>
 </body>
 </html>
