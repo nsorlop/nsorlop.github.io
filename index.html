@@ -632,14 +632,22 @@
     var ctx=canvas.getContext('2d');
     var scoreEl=document.getElementById('score'), bestEl=document.getElementById('best'), resetEl=document.getElementById('reset');
     var W=0,H=0,DPR=1, ball, hoop, aiming=false, aimCur=null, shooting=false, scored=false, score=0, best=0;
-    var POW=0.135, G=0.28, MAXV=14;   // potencia de lanzamiento, gravedad y velocidad máxima
+    var POW=0.12, G=0.24, MAXV=19;   // potencia, gravedad y velocidad máxima (arco flotante que llega)
+    var trail=[], flash=0, pop=null;
     function css(v,f){ return (getComputedStyle(document.documentElement).getPropertyValue(v)||f).trim(); }
     try{ best=parseInt(localStorage.getItem('bv_best')||'0',10)||0; }catch(e){}
     if(bestEl) bestEl.textContent=best;
 
-    function placeHoop(){ hoop={x:W-64, y:H*0.32, w:46}; }
-    function newHoop(){ hoop.y=H*(0.22+Math.random()*0.30); hoop.x=W-(50+Math.random()*40); }
-    function resetBall(){ ball={x:48,y:H-42,r:14,vx:0,vy:0}; shooting=false; scored=false; }
+    function placeHoop(){ hoop={x:W-64, y:H*0.30, w:44, vx:1}; }
+    function newHoop(){ hoop.y=H*(0.20+Math.random()*0.30); }
+    function resetBall(){ ball={x:48,y:H-42,r:14,vx:0,vy:0}; trail=[]; shooting=false; scored=false; }
+    function hoopMove(){
+      var spd=Math.min(2.8, 0.8+score*0.12);            // se acelera con el marcador
+      hoop.vx=(hoop.vx>=0?1:-1)*spd; hoop.x+=hoop.vx;
+      var minX=W*0.5, maxX=W-46;
+      if(hoop.x<minX){ hoop.x=minX; hoop.vx=Math.abs(hoop.vx); }
+      if(hoop.x>maxX){ hoop.x=maxX; hoop.vx=-Math.abs(hoop.vx); }
+    }
     function resize(){
       DPR=Math.min(window.devicePixelRatio||1,2);
       W=canvas.clientWidth; H=canvas.clientHeight;
@@ -658,52 +666,90 @@
       shooting=true; scored=false; if(e.cancelable) e.preventDefault();
     }
     function update(){
+      hoopMove();
+      if(pop){ pop.y-=0.7; pop.life--; if(pop.life<=0) pop=null; }
+      if(flash>0) flash--;
       if(shooting){
+        trail.push({x:ball.x,y:ball.y}); if(trail.length>10) trail.shift();
         ball.vy+=G; ball.x+=ball.vx; ball.y+=ball.vy;
         if(ball.x<ball.r){ ball.x=ball.r; ball.vx*=-0.6; }
         if(ball.x>W-ball.r){ ball.x=W-ball.r; ball.vx*=-0.6; }
         var rimL=hoop.x-hoop.w/2, rimR=hoop.x+hoop.w/2;
-        if(!scored && ball.vy>0 && ball.x>rimL && ball.x<rimR && Math.abs(ball.y-hoop.y)<7){
+        if(!scored && ball.vy>0 && ball.x>rimL && ball.x<rimR && Math.abs(ball.y-hoop.y)<8){
           scored=true; score++; if(score>best){ best=score; try{localStorage.setItem('bv_best',best);}catch(e){} bestEl.textContent=best; }
-          scoreEl.textContent=score; newHoop(); setTimeout(resetBall,450);
+          scoreEl.textContent=score; flash=18; pop={x:hoop.x,y:hoop.y-14,life:42}; newHoop(); setTimeout(resetBall,480);
         }
         if(ball.y>H-ball.r){
           ball.y=H-ball.r; ball.vy*=-0.5; ball.vx*=0.7;
-          if(Math.abs(ball.vy)<1.6){ resetBall(); }
+          if(Math.abs(ball.vy)<1.4){ resetBall(); }
         }
       }
     }
+    function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+    function lighten(hex){ var c=(hex||'#F1A93F').replace('#',''); if(c.length===3) c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+      var r=Math.min(255,parseInt(c.substr(0,2),16)+55), g=Math.min(255,parseInt(c.substr(2,2),16)+42), b=Math.min(255,parseInt(c.substr(4,2),16)+30);
+      return 'rgb('+r+','+g+','+b+')'; }
     function draw(){
       ctx.clearRect(0,0,W,H);
       var mut=css('--muted','#93a0af'), acc=css('--accent','#F1A93F');
-      // floor
-      ctx.strokeStyle=mut; ctx.globalAlpha=.35; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(0,H-8); ctx.lineTo(W,H-8); ctx.stroke(); ctx.globalAlpha=1;
+      // court: floor + arco de tiro
+      ctx.strokeStyle=mut; ctx.globalAlpha=.30; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(0,H-8); ctx.lineTo(W,H-8); ctx.stroke();
+      ctx.globalAlpha=.14; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(64,H-8,82,Math.PI,2*Math.PI); ctx.stroke();
+      ctx.globalAlpha=1;
+
       var rimL=hoop.x-hoop.w/2, rimR=hoop.x+hoop.w/2;
-      // backboard
-      ctx.strokeStyle=mut; ctx.lineWidth=3;
-      ctx.beginPath(); ctx.moveTo(rimR+8,hoop.y-32); ctx.lineTo(rimR+8,hoop.y+16); ctx.stroke();
-      // net
-      ctx.strokeStyle=mut; ctx.globalAlpha=.45; ctx.lineWidth=1;
-      for(var i=0;i<=4;i++){ var x=rimL+(hoop.w/4)*i; ctx.beginPath(); ctx.moveTo(x,hoop.y); ctx.lineTo(hoop.x+((x-hoop.x)*0.35),hoop.y+22); ctx.stroke(); }
-      ctx.beginPath(); ctx.moveTo(rimL+4,hoop.y+11); ctx.lineTo(rimR-4,hoop.y+11); ctx.stroke(); ctx.globalAlpha=1;
-      // rim
-      ctx.strokeStyle=acc; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(rimL,hoop.y); ctx.lineTo(rimR,hoop.y); ctx.stroke();
-      // aim prediction
+      // tablero
+      ctx.save();
+      ctx.fillStyle='rgba(255,255,255,.06)'; ctx.strokeStyle=mut; ctx.lineWidth=2;
+      roundRect(rimR+6,hoop.y-42,7,60,3); ctx.fill(); ctx.stroke();
+      ctx.globalAlpha=.45; ctx.lineWidth=1.5; ctx.strokeRect(rimR-14,hoop.y-22,14,16);
+      ctx.restore();
+      // red (cónica)
+      ctx.strokeStyle=mut; ctx.globalAlpha=.5; ctx.lineWidth=1;
+      var depth=24, nb=hoop.w*0.5;
+      for(var i=0;i<=6;i++){ var tx=rimL+(hoop.w/6)*i, bx=hoop.x-nb/2+(nb/6)*i;
+        ctx.beginPath(); ctx.moveTo(tx,hoop.y); ctx.lineTo(bx,hoop.y+depth); ctx.stroke(); }
+      for(var j=1;j<=2;j++){ var yy=hoop.y+(depth/2)*j, ww=hoop.w-(hoop.w-nb)*(j/2)*0.9;
+        ctx.beginPath(); ctx.moveTo(hoop.x-ww/2,yy); ctx.lineTo(hoop.x+ww/2,yy); ctx.stroke(); }
+      ctx.globalAlpha=1;
+      // aro (destella al encestar)
+      var rc = flash>0 ? '#ffffff' : acc;
+      ctx.strokeStyle=rc; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(rimL,hoop.y); ctx.lineTo(rimR,hoop.y); ctx.stroke();
+      ctx.fillStyle=rc; ctx.beginPath(); ctx.arc(rimL,hoop.y,3,0,6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(rimR,hoop.y,3,0,6.2832); ctx.fill();
+
+      // predicción de tiro
       if(aiming && aimCur){
         var vx=(ball.x-aimCur.x)*POW, vy=(ball.y-aimCur.y)*POW;
         var sp=Math.sqrt(vx*vx+vy*vy); if(sp>MAXV){ vx=vx/sp*MAXV; vy=vy/sp*MAXV; }
         var px=ball.x, py=ball.y;
         ctx.fillStyle=acc; ctx.globalAlpha=.5;
-        for(var t=0;t<26;t++){ px+=vx; py+=vy; vy+=G; if(t%2===0){ ctx.beginPath(); ctx.arc(px,py,2,0,6.2832); ctx.fill(); } }
+        for(var t=0;t<30;t++){ px+=vx; py+=vy; vy+=G; if(t%2===0){ ctx.beginPath(); ctx.arc(px,py,2,0,6.2832); ctx.fill(); } }
         ctx.globalAlpha=1;
       }
-      // ball
-      ctx.fillStyle=acc; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,6.2832); ctx.fill();
-      ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1.2;
+      // estela del balón
+      for(var k=0;k<trail.length;k++){ ctx.globalAlpha=(k/trail.length)*0.26; ctx.fillStyle=acc;
+        ctx.beginPath(); ctx.arc(trail[k].x,trail[k].y,ball.r*0.78,0,6.2832); ctx.fill(); }
+      ctx.globalAlpha=1;
+      // balón con volumen + costuras
+      var grd=ctx.createRadialGradient(ball.x-5,ball.y-6,3,ball.x,ball.y,ball.r);
+      grd.addColorStop(0,lighten(acc)); grd.addColorStop(1,acc);
+      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,6.2832); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,.42)'; ctx.lineWidth=1.2;
       ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,6.2832); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(ball.x-ball.r,ball.y); ctx.lineTo(ball.x+ball.r,ball.y); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(ball.x,ball.y-ball.r); ctx.lineTo(ball.x,ball.y+ball.r); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(ball.x,ball.y,ball.r*0.5,ball.r,0,0,6.2832); ctx.stroke();
+      // +1 al encestar
+      if(pop){ ctx.globalAlpha=Math.max(0,pop.life/42); ctx.fillStyle=acc;
+        ctx.font='700 16px ui-monospace,Consolas,monospace'; ctx.textAlign='center';
+        ctx.fillText('+1',pop.x,pop.y); ctx.textAlign='left'; ctx.globalAlpha=1; }
+      // pista libre: hint inicial
+      if(!shooting && !aiming && score===0){
+        ctx.fillStyle=mut; ctx.globalAlpha=.7; ctx.font='12px ui-monospace,Consolas,monospace'; ctx.textAlign='left';
+        ctx.fillText('Arrastra el balón hacia atrás y suelta ↗', ball.x-4, ball.y-ball.r-12); ctx.globalAlpha=1; }
     }
     function loop(){ update(); draw(); requestAnimationFrame(loop); }
 
